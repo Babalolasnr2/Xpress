@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Expo Tutor AI — Expo Express</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Nunito',sans-serif;background:#0a0a0a;color:#f0f0f0;height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+    /* TOP BAR */
+    .topbar{background:#000;border-bottom:2px solid #222;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:100;}
+    .menu-btn{background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;}
+    .topbar-center{flex:1;display:flex;flex-direction:column;align-items:center;}
+    .topbar-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#fff;letter-spacing:2px;line-height:1;}
+    .topbar-status{font-size:.68rem;color:#6fcf6f;letter-spacing:1px;}
+    .back-btn{background:#1a1a1a;border:1px solid #333;color:#fff;padding:6px 12px;border-radius:6px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;font-size:.78rem;text-decoration:none;flex-shrink:0;}
+
+    /* SIDEBAR */
+    .sidebar{position:fixed;top:0;left:-280px;width:280px;height:100%;background:#0d0d0d;border-right:1px solid #222;z-index:999;transition:left .3s ease;display:flex;flex-direction:column;}
+    .sidebar.open{left:0;}
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:998;}
+    .sidebar-overlay.show{display:block;}
+    .sidebar-hdr{padding:20px 16px 14px;border-bottom:1px solid #1a1a1a;display:flex;justify-content:space-between;align-items:center;}
+    .sidebar-title{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#fff;letter-spacing:2px;}
+    .sidebar-close{background:none;border:none;color:#888;font-size:1.4rem;cursor:pointer;}
+    .new-chat-btn{margin:12px;background:#fff;color:#000;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:.9rem;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:8px;justify-content:center;}
+    .sidebar-section{font-size:.68rem;color:#555;text-transform:uppercase;letter-spacing:1px;padding:8px 16px 4px;font-weight:800;}
+    .history-list{flex:1;overflow-y:auto;padding:0 8px 16px;}
+    .history-item{padding:10px 10px;border-radius:8px;cursor:pointer;font-size:.82rem;color:#aaa;display:flex;align-items:center;gap:8px;transition:background .15s;}
+    .history-item:hover{background:#1a1a1a;color:#fff;}
+    .history-item.active{background:#1a1a1a;color:#fff;}
+    .history-item-icon{font-size:.9rem;flex-shrink:0;}
+    .history-item-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+    .history-item-del{background:none;border:none;color:#444;cursor:pointer;font-size:.8rem;padding:2px 4px;flex-shrink:0;}
+    .history-item-del:hover{color:#cf6f6f;}
+    .sidebar-footer{padding:14px 16px;border-top:1px solid #1a1a1a;font-size:.72rem;color:#444;text-align:center;}
+
+    /* MESSAGES */
+    .messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;}
+    .messages::-webkit-scrollbar{width:4px;}
+    .messages::-webkit-scrollbar-thumb{background:#222;border-radius:2px;}
+    .msg{display:flex;flex-direction:column;max-width:88%;}
+    .msg.user{align-self:flex-end;align-items:flex-end;}
+    .msg.bot{align-self:flex-start;align-items:flex-start;}
+    .msg-bubble{padding:12px 16px;border-radius:18px;font-size:.93rem;line-height:1.75;word-break:break-word;}
+    .msg.user .msg-bubble{background:#fff;color:#000;border-bottom-right-radius:4px;}
+    .msg.bot .msg-bubble{background:#1a1a1a;color:#e8e8e8;border-bottom-left-radius:4px;border:1px solid #2a2a2a;}
+    .msg-label{font-size:.66rem;color:#444;margin-top:4px;padding:0 4px;}
+    .msg-img{max-width:200px;border-radius:10px;margin-bottom:6px;border:1px solid #333;display:block;cursor:zoom-in;}
+
+    /* TYPING */
+    .typing-row{display:none;align-self:flex-start;padding:0 0 4px;}
+    .typing-row.show{display:flex;}
+    .typing-bubble{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:18px;border-bottom-left-radius:4px;padding:12px 18px;display:flex;gap:6px;align-items:center;}
+    .td{width:8px;height:8px;background:#444;border-radius:50%;animation:td 1.2s cubic-bezier(.36,.07,.19,.97) infinite;}
+    .td:nth-child(2){animation-delay:.15s;}
+    .td:nth-child(3){animation-delay:.3s;}
+    @keyframes td{
+      0%,100%{transform:translateY(0) scale(1);background:#444;}
+      30%{transform:translateY(-8px) scale(1.15);background:#fff;}
+      60%{transform:translateY(-2px) scale(0.95);background:#888;}
+    }
+    .typing-label{font-size:.68rem;color:#555;margin-left:4px;font-style:italic;}
+
+    /* ATTACHMENTS PREVIEW */
+    .attach-bar{padding:10px 14px;display:none;gap:8px;flex-wrap:wrap;border-top:1px solid #1a1a1a;background:#0d0d0d;max-height:140px;overflow-y:auto;}
+    .attach-bar.show{display:flex;}
+    .attach-item{background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:7px 10px;display:flex;align-items:center;gap:8px;font-size:.75rem;color:#aaa;transition:border-color .2s;}
+    .attach-item.loading{border-color:#333;opacity:.7;}
+    .attach-thumb{width:38px;height:38px;object-fit:cover;border-radius:6px;border:1px solid #333;flex-shrink:0;}
+    .att-loading{width:38px;height:38px;background:#1a1a1a;border-radius:6px;border:1px solid #333;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .att-spinner{width:16px;height:16px;border:2px solid #333;border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+    .att-icon{width:38px;height:38px;background:#1a1a1a;border-radius:6px;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+    .attach-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .attach-name{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#ccc;font-weight:700;}
+    .attach-status{font-size:.65rem;color:#555;}
+    .attach-rm{background:none;border:none;color:#555;cursor:pointer;font-size:.9rem;font-weight:800;line-height:1;padding:0 2px;flex-shrink:0;transition:color .15s;}
+    .attach-rm:hover{color:#cf6f6f;}
+    /* TOAST */
+    .toast{display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid #333;color:#fff;padding:10px 20px;border-radius:10px;font-size:.82rem;font-weight:700;z-index:9990;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+    .toast.err{border-color:#cf6f6f;color:#cf6f6f;}
+    .toast.warn{border-color:#f5c518;color:#f5c518;}
+
+    /* INPUT AREA */
+    .input-area{background:#0d0d0d;border-top:1px solid #1a1a1a;padding:12px 14px;flex-shrink:0;}
+    .input-row{display:flex;gap:8px;align-items:flex-end;}
+    .input-row textarea{flex:1;background:#111;border:1px solid #2a2a2a;border-radius:14px;padding:12px 14px;color:#fff;font-size:.93rem;font-family:'Nunito',sans-serif;outline:none;resize:none;min-height:46px;max-height:130px;line-height:1.5;transition:border-color .2s;}
+    .input-row textarea:focus{border-color:#555;}
+    .input-row textarea::placeholder{color:#3a3a3a;}
+    .input-btns{display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
+    .attach-btn{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.2rem;position:relative;flex-shrink:0;transition:background .2s,border-color .2s,transform .15s;}
+    .attach-btn:hover{background:#252525;border-color:#444;transform:scale(1.06);}
+    .attach-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+    /* SEND BUTTON — glowing white circle */
+    .send-btn{
+      background:linear-gradient(135deg,#ffffff 0%,#d0d0d0 100%);
+      border:none;border-radius:50%;
+      width:48px;height:48px;
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;font-size:1.1rem;flex-shrink:0;
+      box-shadow:0 2px 12px rgba(255,255,255,0.25);
+      transition:transform .15s,box-shadow .15s;
+      color:#000;
+    }
+    .send-btn:hover{transform:scale(1.1);box-shadow:0 4px 20px rgba(255,255,255,0.4);}
+    .send-btn:active{transform:scale(0.95);}
+    .send-btn:disabled{background:#2a2a2a;box-shadow:none;cursor:not-allowed;color:#555;}
+    /* STOP BUTTON — red pulsing circle */
+    .stop-btn{
+      background:#1a0a0a;
+      border:2px solid #cf6f6f;
+      border-radius:50%;
+      width:48px;height:48px;
+      display:none;align-items:center;justify-content:center;
+      cursor:pointer;font-size:1rem;flex-shrink:0;
+      color:#cf6f6f;
+      animation:stop-pulse 1.2s ease-in-out infinite;
+    }
+    .stop-btn.show{display:flex;}
+    .stop-btn:hover{background:#2a1010;transform:scale(1.08);}
+    @keyframes stop-pulse{
+      0%,100%{box-shadow:0 0 0 0 rgba(207,111,111,0.4);}
+      50%{box-shadow:0 0 0 6px rgba(207,111,111,0);}
+    }
+
+    /* WELCOME SCREEN */
+    .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:30px 20px;text-align:center;}
+    .welcome-avatar{width:70px;height:70px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;margin-bottom:16px;}
+    .welcome h2{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:#fff;letter-spacing:2px;margin-bottom:8px;}
+    .welcome p{color:#666;font-size:.88rem;max-width:340px;line-height:1.7;margin-bottom:24px;}
+    .suggestion-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:400px;width:100%;}
+    .suggestion{background:#111;border:1px solid #222;border-radius:12px;padding:12px;cursor:pointer;text-align:left;font-size:.8rem;color:#aaa;line-height:1.5;transition:background .15s,border-color .15s;}
+    .suggestion:hover{background:#1a1a1a;border-color:#444;color:#fff;}
+    .suggestion b{color:#fff;display:block;margin-bottom:2px;font-size:.82rem;}
+
+    /* MATH RENDERING */
+    .fraction{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 4px;font-size:.92em;line-height:1.1;}
+    .frac-num{border-bottom:1.5px solid currentColor;padding:1px 4px;text-align:center;line-height:1.4;}
+    .frac-den{padding:1px 4px;text-align:center;line-height:1.4;}
+    .msg-bubble sup{font-size:.72em;vertical-align:super;line-height:0;}
+    .msg-bubble sub{font-size:.72em;vertical-align:sub;line-height:0;}
+
+    /* LIGHTBOX */
+    .lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.97);z-index:9999;justify-content:center;align-items:center;}
+    .lb.show{display:flex;}
+    .lb img{max-width:95%;max-height:90vh;border-radius:8px;}
+    .lb-close{position:absolute;top:14px;right:18px;color:#fff;font-size:2rem;cursor:pointer;background:none;border:none;font-weight:800;}
+
+    /* LOADING IMG PLACEHOLDER */
+    .img-loading{width:200px;height:140px;background:#111;border-radius:10px;border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;}
+    .img-loading-spinner{width:24px;height:24px;border:2px solid #333;border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-hdr">
+    <div class="sidebar-title">Expo Tutor</div>
+    <button class="sidebar-close" onclick="closeSidebar()">&#x2715;</button>
+  </div>
+  <button class="new-chat-btn" onclick="newChat()">&#43; New Chat</button>
+  <div class="sidebar-section">Recent Chats</div>
+  <div class="history-list" id="history-list"></div>
+  <div class="sidebar-footer">Expo Express Verified Update Hub<br/>AI Tutor — Free for all students</div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <button class="menu-btn" onclick="openSidebar()">&#9776;</button>
+  <div class="topbar-center">
+    <div class="topbar-name">Expo Tutor AI</div>
+    <div class="topbar-status" id="ai-status">&#9679; Online</div>
+  </div>
+  <a href="index.html" class="back-btn">&#8592; Back</a>
+</div>
+
+<!-- MESSAGES -->
+<div class="messages" id="messages">
+  <!-- Welcome shown when no messages -->
+  <div class="welcome" id="welcome">
+    <div class="welcome-avatar">&#127891;</div>
+    <h2>Expo Tutor AI</h2>
+    <p>Your personal WAEC and NECO tutor by <b style="color:#fff">Expo Express Verified Update Hub</b>. Ask any subject question or upload a photo of your question.</p>
+    <div class="suggestion-grid">
+      <div class="suggestion" onclick="useSuggestion(this)"><b>Mathematics</b>Solve quadratic equations step by step</div>
+      <div class="suggestion" onclick="useSuggestion(this)"><b>English</b>Explain comprehension passage techniques</div>
+      <div class="suggestion" onclick="useSuggestion(this)"><b>Physics</b>Explain Newton's laws with examples</div>
+      <div class="suggestion" onclick="useSuggestion(this)"><b>Chemistry</b>How to balance chemical equations</div>
+    </div>
+  </div>
+</div>
+
+<!-- TYPING -->
+<div class="typing-row" id="typing-row">
+  <div style="padding:0 16px 8px;">
+    <div class="typing-bubble">
+      <div class="td"></div><div class="td"></div><div class="td"></div>
+        <span class="typing-label">Expo Tutor is typing...</span>
+    </div>
+  </div>
+</div>
+
+<!-- ATTACHMENTS PREVIEW BAR -->
+<div class="attach-bar" id="attach-bar"></div>
+
+<!-- INPUT AREA -->
+<div class="input-area">
+  <div class="input-row">
+    <textarea id="ai-input" placeholder="Ask any question..." rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,130)+'px'"></textarea>
+    <div class="input-btns">
+      <div class="attach-btn" title="Upload images or documents (max 10)" id="attach-btn-wrap">
+        <span id="attach-icon">&#128206;</span>
+        <span id="attach-count" style="display:none;position:absolute;top:-6px;right:-6px;background:#fff;color:#000;border-radius:50%;width:18px;height:18px;font-size:.65rem;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1;">0</span>
+        <input type="file" id="file-input" accept="image/*,.pdf,.doc,.docx,.txt" multiple onchange="handleFiles(this)"/>
+      </div>
+      <button class="send-btn" id="send-btn" onclick="sendMsg()" title="Send message">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+      <button class="stop-btn" id="stop-btn" onclick="stopResponse()" title="Stop response">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="16" height="16" rx="2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lb" id="lb" onclick="document.getElementById('lb').classList.remove('show')">
+  <button class="lb-close">&#x2715;</button>
+  <img id="lb-img" src="" alt=""/>
+</div>
+
+<!-- FIREBASE SDK — loads Groq key from database -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  const app = initializeApp({ databaseURL: "https://expoxpress-6528a-default-rtdb.firebaseio.com" });
+  const db  = getDatabase(app);
+  try {
+    const snap = await get(ref(db, 'config/groqKey'));
+    if (snap.exists()) { window._GROQ_KEY = snap.val(); }
+    else { console.warn('No Groq key saved yet. Add it via admin panel.'); }
+  } catch(e) { console.error('Firebase error:', e.message); }
+</script>
+
+<script>
+  var GROQ_KEY = null;
+  var GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  var SYSTEM   = 'You are Expo Tutor, a warm, smart and friendly Nigerian secondary school teacher working for Expo Express Verified Update Hub. You help students prepare for WAEC and NECO exams. You teach ALL subjects: Mathematics, English Language, Physics, Chemistry, Biology, Economics, Government, Literature in English, Geography, Commerce, Accounting, Agriculture, Civic Education, Further Mathematics, CRS, IRS, Technical Drawing, and more. When solving Mathematics always show full working steps. When you have fractions, write them as numerator/denominator clearly e.g. "3/4" or use the format (3÷4). Never use LaTeX. Write answers in plain readable text. Use numbered steps for working. Be encouraging and speak like a real Nigerian teacher. If a student uploads an image of a question, read it carefully and solve it completely. Never refuse to answer an education question.';
+
+  var chatHistory  = [];
+  var attachments  = []; // {name, type, base64, mime, previewUrl}
+  var isBusy       = false;
+  var abortCtrl    = null;
+  var allChats     = JSON.parse(localStorage.getItem('expo_chats') || '[]');
+  var currentChatId = null;
+
+  // ── SIDEBAR ───────────────────────────────────────────
+  function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sb-overlay').classList.add('show'); renderHistory(); }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sb-overlay').classList.remove('show'); }
+
+  function renderHistory() {
+    var list = document.getElementById('history-list');
+    if (!allChats.length) { list.innerHTML = '<div style="padding:10px 10px;font-size:.78rem;color:#333;">No chats yet</div>'; return; }
+    list.innerHTML = allChats.slice().reverse().map(function(c) {
+      return '<div class="history-item' + (c.id === currentChatId ? ' active' : '') + '">' +
+        '<span class="history-item-icon">&#128172;</span>' +
+        '<span class="history-item-text" onclick="loadChat(\'' + c.id + '\')">' + escHtml(c.title) + '</span>' +
+        '<button class="history-item-del" onclick="deleteChat(\'' + c.id + '\',event)">&#128465;</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  function saveCurrentChat() {
+    if (!chatHistory.length || !currentChatId) return;
+    var firstMsg = chatHistory[0];
+    var title = '';
+    if (Array.isArray(firstMsg.content)) {
+      var tp = firstMsg.content.find(function(p){ return p.type==='text'; });
+      title = tp ? tp.text.substring(0,40) : 'Chat';
+    } else {
+      title = String(firstMsg.content).substring(0,40);
+    }
+    var existing = allChats.findIndex(function(c){ return c.id===currentChatId; });
+    var chatData = { id: currentChatId, title: title, history: chatHistory, ts: Date.now() };
+    if (existing >= 0) allChats[existing] = chatData;
+    else allChats.push(chatData);
+    localStorage.setItem('expo_chats', JSON.stringify(allChats));
+  }
+
+  function loadChat(id) {
+    var chat = allChats.find(function(c){ return c.id===id; });
+    if (!chat) return;
+    saveCurrentChat();
+    currentChatId = id;
+    chatHistory = chat.history.slice();
+    var msgs = document.getElementById('messages');
+    document.getElementById('welcome').style.display = 'none';
+    msgs.innerHTML = '';
+    chatHistory.forEach(function(m) {
+      var role = m.role === 'assistant' ? 'bot' : 'user';
+      var text = Array.isArray(m.content)
+        ? (m.content.find(function(p){ return p.type==='text'; }) || {}).text || ''
+        : m.content;
+      appendBubble(role, text);
+    });
+    closeSidebar();
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function deleteChat(id, e) {
+    e.stopPropagation();
+    if (!confirm('Delete this chat?')) return;
+    allChats = allChats.filter(function(c){ return c.id!==id; });
+    localStorage.setItem('expo_chats', JSON.stringify(allChats));
+    if (currentChatId === id) newChat();
+    else renderHistory();
+  }
+
+  function newChat() {
+    saveCurrentChat();
+    chatHistory = [];
+    currentChatId = 'chat_' + Date.now();
+    var msgs = document.getElementById('messages');
+    msgs.innerHTML = '';
+    msgs.appendChild(document.getElementById('welcome') || createWelcome());
+    document.getElementById('welcome').style.display = 'flex';
+    closeSidebar();
+  }
+
+  // ── FILE HANDLING ─────────────────────────────────────
+  function handleFiles(input) {
+    var files = Array.from(input.files);
+    var remaining = 10 - attachments.length;
+
+    if (remaining <= 0) {
+      showToast('Maximum 10 files reached.', 'err');
+      input.value = '';
+      return;
+    }
+
+    if (files.length > remaining) {
+      showToast('Only ' + remaining + ' more file(s) allowed. Extra files ignored.', 'warn');
+      files = files.slice(0, remaining);
+    }
+
+    files.forEach(function(file) {
+      // Add a loading placeholder immediately
+      var tempId = 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      attachments.push({ id: tempId, name: file.name, mime: file.type, base64: null, previewUrl: null, loading: true });
+      renderAttachBar();
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var result = e.target.result;
+        var b64    = result.split(',')[1];
+        // Find and update the placeholder
+        var idx = attachments.findIndex(function(a){ return a.id === tempId; });
+        if (idx >= 0) {
+          attachments[idx].base64     = b64;
+          attachments[idx].loading    = false;
+          attachments[idx].previewUrl = file.type.startsWith('image/') ? result : null;
+        }
+        renderAttachBar();
+        updateAttachCount();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    input.value = '';
+    updateAttachCount();
+  }
+
+  function updateAttachCount() {
+    var countEl = document.getElementById('attach-count');
+    var n = attachments.length;
+    if (n > 0) {
+      countEl.textContent = n;
+      countEl.style.display = 'flex';
+    } else {
+      countEl.style.display = 'none';
+    }
+    // Change icon color when files attached
+    document.getElementById('attach-icon').style.opacity = n > 0 ? '1' : '0.7';
+  }
+
+  function renderAttachBar() {
+    var bar = document.getElementById('attach-bar');
+    if (!attachments.length) { bar.className = 'attach-bar'; return; }
+    bar.className = 'attach-bar show';
+    bar.innerHTML = attachments.map(function(a, i) {
+      var thumb = '';
+      if (a.loading) {
+        thumb = '<div class="att-loading"><div class="att-spinner"></div></div>';
+      } else if (a.previewUrl) {
+        thumb = '<img class="attach-thumb" src="' + a.previewUrl + '"/>';
+      } else {
+        var icon = a.mime.includes('pdf') ? '&#128196;' : a.mime.includes('word') || a.mime.includes('doc') ? '&#128196;' : '&#128196;';
+        thumb = '<div class="att-icon">' + icon + '</div>';
+      }
+      return '<div class="attach-item' + (a.loading ? ' loading' : '') + '">' +
+        thumb +
+        '<div class="attach-info">' +
+          '<span class="attach-name">' + escHtml(a.name) + '</span>' +
+          (a.loading ? '<span class="attach-status">Loading...</span>' : '<span class="attach-status">' + formatFileSize(a.base64) + '</span>') +
+        '</div>' +
+        (!a.loading ? '<button class="attach-rm" onclick="removeAttach(' + i + ')">&#x2715;</button>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  function formatFileSize(b64) {
+    if (!b64) return '';
+    var bytes = Math.round(b64.length * 0.75);
+    if (bytes < 1024) return bytes + 'B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + 'KB';
+    return (bytes/(1024*1024)).toFixed(1) + 'MB';
+  }
+
+  function removeAttach(i) {
+    attachments.splice(i, 1);
+    renderAttachBar();
+    updateAttachCount();
+  }
+
+  function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toast';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.className = 'toast ' + (type || '');
+    t.style.display = 'block';
+    setTimeout(function(){ t.style.display = 'none'; }, 3000);
+  }
+
+  // ── SEND MESSAGE ──────────────────────────────────────
+  function useSuggestion(el) {
+    document.getElementById('ai-input').value = el.querySelector('b').textContent + ': ' + el.lastChild.textContent.trim();
+    sendMsg();
+  }
+
+  async function sendMsg() {
+    var input   = document.getElementById('ai-input');
+    var text    = input.value.trim();
+    if ((!text && !attachments.length) || isBusy) return;
+
+    if (!window._GROQ_KEY) {
+      showToast('AI is not ready yet. Please wait or refresh.', 'err');
+      return;
+    }
+
+    document.getElementById('welcome').style.display = 'none';
+    if (!currentChatId) currentChatId = 'chat_' + Date.now();
+
+    // Build user content
+    var userContent = [];
+    // Add image attachments
+    attachments.forEach(function(a) {
+      if (a.mime.startsWith('image/')) {
+        userContent.push({ type:'image_url', image_url:{ url:'data:'+a.mime+';base64,'+a.base64 } });
+      }
+    });
+    // Add text
+    if (text) userContent.push({ type:'text', text: text });
+    else if (userContent.length) userContent.push({ type:'text', text:'Please read the uploaded file(s) and help me with them.' });
+
+    // Show user bubble with image previews
+    var imgPreviews = attachments.filter(function(a){ return a.previewUrl; }).map(function(a){ return a.previewUrl; });
+    appendUserBubble(text || '(file uploaded)', imgPreviews);
+
+    chatHistory.push({ role:'user', content: userContent });
+
+    input.value=''; input.style.height='auto';
+    attachments=[];
+    renderAttachBar();
+    isBusy=true;
+    document.getElementById('send-btn').disabled=true;
+    document.getElementById('stop-btn').className='stop-btn show';
+    document.getElementById('ai-status').textContent='&#9679; Typing...';
+    showTyping(true);
+
+    try {
+      abortCtrl = new AbortController();
+      var messages = [{ role:'system', content:SYSTEM }].concat(chatHistory);
+
+      var resp = await fetch(GROQ_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+GROQ_KEY },
+        body: JSON.stringify({ model:'meta-llama/llama-4-scout-17b-16e-instruct', messages:messages, max_tokens:1500, temperature:0.7 }),
+        signal: abortCtrl.signal
+      });
+
+      var data = await resp.json();
+      var reply = data.choices && data.choices[0] ? data.choices[0].message.content : (data.error ? 'Error: '+data.error.message : 'Sorry, try again.');
+
+      chatHistory.push({ role:'assistant', content: reply });
+      showTyping(false);
+      await typeMessage(reply);
+      saveCurrentChat();
+
+    } catch(err) {
+      showTyping(false);
+      if (err.name !== 'AbortError') appendBubble('bot', 'Sorry, I could not connect. Please check your internet and try again.');
+    }
+
+    isBusy=false;
+    document.getElementById('send-btn').disabled=false;
+    document.getElementById('stop-btn').className='stop-btn';
+    document.getElementById('ai-status').textContent='&#9679; Online';
+    input.focus();
+  }
+
+  function stopResponse() {
+    if (abortCtrl) abortCtrl.abort();
+    showTyping(false);
+    isBusy=false;
+    document.getElementById('send-btn').disabled=false;
+    document.getElementById('stop-btn').className='stop-btn';
+    document.getElementById('ai-status').textContent='&#9679; Online';
+  }
+
+  // ── TYPING ANIMATION ──────────────────────────────────
+  async function typeMessage(text) {
+    var msgs = document.getElementById('messages');
+    var div  = document.createElement('div');
+    div.className = 'msg bot';
+    var bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    var lbl = document.createElement('div');
+    lbl.className = 'msg-label';
+    lbl.textContent = 'Expo Tutor';
+    div.appendChild(bubble);
+    div.appendChild(lbl);
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // Type plain text character by character — avoids broken HTML mid-render
+    // Then do final formatted render at end
+    var plain = text;
+    var i = 0;
+    var stopped = false;
+
+    return new Promise(function(resolve) {
+      function typeNext() {
+        // Check if stopped
+        if (abortCtrl && abortCtrl.signal.aborted) {
+          bubble.innerHTML = formatText(plain.substring(0, i));
+          stopped = true;
+          resolve();
+          return;
+        }
+
+        if (i >= plain.length) {
+          // Done — do full clean formatted render
+          bubble.innerHTML = formatText(plain);
+          msgs.scrollTop = msgs.scrollHeight;
+          resolve();
+          return;
+        }
+
+        // How many chars to add this tick
+        // Vary speed: fast for spaces/common chars, slower for punctuation (natural feel)
+        var ch = plain[i];
+        var chunkSize = 3;
+        var delay = 18;
+
+        if (ch === '.' || ch === '!' || ch === '?') {
+          chunkSize = 1; delay = 60; // pause at end of sentence
+        } else if (ch === ',') {
+          chunkSize = 1; delay = 35; // slight pause at comma
+        } else if (ch === '
+') {
+          chunkSize = 1; delay = 40;
+        }
+
+        i = Math.min(i + chunkSize, plain.length);
+
+        // Show plain text while typing (no HTML tags visible)
+        bubble.textContent = plain.substring(0, i);
+        msgs.scrollTop = msgs.scrollHeight;
+
+        setTimeout(typeNext, delay);
+      }
+      typeNext();
+    });
+  }
+
+  // ── FORMATTING ────────────────────────────────────────
+  function formatText(text) {
+    // Step 1: escape HTML
+    var t = text
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;');
+
+    // Step 2: bold and italic
+    t = t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    t = t.replace(/\*(.*?)\*/g,'<em>$1</em>');
+
+    // Step 3: headings
+    t = t.replace(/^### (.*?)$/gm,'<span style="font-size:1rem;font-weight:800;color:#fff;display:block;margin:8px 0 2px;">$1</span>');
+    t = t.replace(/^## (.*?)$/gm,'<span style="font-size:1.05rem;font-weight:800;color:#fff;display:block;margin:10px 0 4px;">$1</span>');
+
+    // Step 4: stacked fractions — matches patterns like 3/4, 22/7, (a+b)/(c+d)
+    // Simple numeric fractions
+    t = t.replace(/\b(\d+)\/(\d+)\b/g, function(match, num, den) {
+      return '<span class="fraction"><span class="frac-num">' + num + '</span><span class="frac-den">' + den + '</span></span>';
+    });
+
+    // Step 5: superscripts — x^2, x^n, a^(n+1)
+    t = t.replace(/([a-zA-Z0-9])\^\(([^)]+)\)/g, '$1<sup>$2</sup>');
+    t = t.replace(/([a-zA-Z0-9])\^([0-9a-zA-Z]+)/g, '$1<sup>$2</sup>');
+
+    // Step 6: square root symbol
+    t = t.replace(/sqrt\(([^)]+)\)/g, '&radic;<span style="text-decoration:overline;">$1</span>');
+    t = t.replace(/√([^\s<]+)/g, '&radic;<span style="text-decoration:overline;">$1</span>');
+
+    // Step 7: common math symbols
+    t = t.replace(/&lt;=/g, '&le;');
+    t = t.replace(/&gt;=/g, '&ge;');
+    t = t.replace(/!=/g, '&ne;');
+    t = t.replace(/\bpi\b/gi, '&pi;');
+    t = t.replace(/\btheta\b/gi, '&theta;');
+    t = t.replace(/\balpha\b/gi, '&alpha;');
+    t = t.replace(/\bbeta\b/gi, '&beta;');
+    t = t.replace(/\bdelta\b/gi, '&delta;');
+    t = t.replace(/\bsigma\b/gi, '&sigma;');
+    t = t.replace(/\binfinity\b/gi, '&infin;');
+    t = t.replace(/\+-/g, '&plusmn;');
+    t = t.replace(/\bdeg\b/g, '&deg;');
+    t = t.replace(/\bcm2\b/gi, 'cm&sup2;');
+    t = t.replace(/\bm2\b/g, 'm&sup2;');
+    t = t.replace(/\bcm3\b/gi, 'cm&sup3;');
+
+    // Step 8: numbered list items
+    t = t.replace(/^(\d+)\. /gm, '<br/><strong>$1.</strong> ');
+
+    // Step 9: bullet points
+    t = t.replace(/^[-•\*] /gm, '<br/>&#8226; ');
+
+    // Step 10: line breaks
+    t = t.replace(/\n\n/g,'<br/><br/>');
+    t = t.replace(/\n/g,'<br/>');
+
+    return t;
+  }
+
+  function appendBubble(role, text) {
+    var msgs = document.getElementById('messages');
+    var div  = document.createElement('div');
+    div.className = 'msg ' + role;
+    var bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.innerHTML = role==='bot' ? formatText(text) : escHtml(text);
+    var lbl = document.createElement('div');
+    lbl.className = 'msg-label';
+    lbl.textContent = role==='bot' ? 'Expo Tutor' : 'You';
+    div.appendChild(bubble);
+    div.appendChild(lbl);
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function appendUserBubble(text, imgPreviews) {
+    var msgs = document.getElementById('messages');
+    var div  = document.createElement('div');
+    div.className = 'msg user';
+
+    // Show image loading placeholders then swap in real images
+    imgPreviews.forEach(function(src) {
+      var loader = document.createElement('div');
+      loader.className = 'img-loading';
+      loader.innerHTML = '<div class="img-loading-spinner"></div><div style="font-size:.72rem;color:#555;">Loading image...</div>';
+      div.appendChild(loader);
+      // Swap to real image after short delay
+      setTimeout(function() {
+        var img = document.createElement('img');
+        img.className = 'msg-img';
+        img.src = src;
+        img.onclick = function(){ document.getElementById('lb-img').src=src; document.getElementById('lb').classList.add('show'); };
+        div.replaceChild(img, loader);
+        msgs.scrollTop = msgs.scrollHeight;
+      }, 600);
+    });
+
+    if (text && text !== '(file uploaded)') {
+      var bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.textContent = text;
+      div.appendChild(bubble);
+    }
+    var lbl = document.createElement('div');
+    lbl.className = 'msg-label';
+    lbl.textContent = 'You';
+    div.appendChild(lbl);
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function showTyping(show) {
+    document.getElementById('typing-row').className = 'typing-row' + (show?' show':'');
+    if (show) { var m=document.getElementById('messages'); m.scrollTop=m.scrollHeight; }
+  }
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Init
+  currentChatId = 'chat_' + Date.now();
+</script>
+</body>
+</html>
